@@ -7,7 +7,7 @@ from ..schemas.user import UserCreate, UserResponse, RefreshAccessTokenRequest, 
 from ..utils import password_manager, oauth2
 from ..database import get_db
 
-from shared.models import User
+from ...shared.models import User
 
 from config import DUMMY_PASS
 
