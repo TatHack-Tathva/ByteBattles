@@ -9,6 +9,7 @@ from ..database import get_db
 
 from ...shared.models import User
 
+import redis
 from config import DUMMY_PASS
 
 router = APIRouter(
