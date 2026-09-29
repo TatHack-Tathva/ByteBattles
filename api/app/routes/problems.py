@@ -2,13 +2,16 @@ import io
 import json
 import zipfile
 from pydantic import ValidationError
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, Form, File, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sa_func
 from typing import List, Dict, BinaryIO
 
-from ..schemas.problems import ProblemResponse, ProblemDetailResponse, ProblemArrayDataValidator, TagCreate, ProblemCreateResponse
+from ..schemas.problems import ProblemResponse, ProblemDetailResponse, ProblemArrayDataValidator, TagCreate, ProblemCreateResponse, ProblemStatsResponse, LeaderboardEntry
 from ..utils import oauth2
+from ..utils.redis_utils import get_redis_client
 from ..database import get_db
 
 from shared.core import get_storage_testcases, get_storage_submission_code
@@ -16,7 +19,7 @@ from shared.models import (
     Problem, Category, TestCase, # problems
     Submission, # submissions
     User, # users
-    Difficulty # enums
+    Difficulty, Verdict # enums
 )
 
 router = APIRouter(
@@ -46,6 +49,46 @@ def get_problems(page: int = Query(default=1, ge=1), limit: int = Query(default=
         }
         for problem in problems
     ]
+
+
+# ── Feature: Problem Statistics ───────────────────────────────────────────────
+# Placed BEFORE /{problem_id} so FastAPI matches the literal "/stats" segment
+# before the path parameter captures it.
+@router.get('/{problem_id}/stats', status_code=status.HTTP_200_OK, response_model=ProblemStatsResponse)
+def get_problem_stats(problem_id: str, db: Session = Depends(get_db)):
+    # Respect the same visibility rule used by other public endpoints
+    problem = db.query(Problem).filter(Problem.id == problem_id, Problem.visibility == True).first()
+    if not problem:
+        raise HTTPException(detail="requested problem doesn't exist", status_code=status.HTTP_404_NOT_FOUND)
+
+    # Query verdict counts grouped by verdict value
+    rows = (
+        db.query(Submission.verdict, sa_func.count(Submission.id))
+        .filter(Submission.problem_id == problem_id)
+        .group_by(Submission.verdict)
+        .all()
+    )
+
+    verdicts: Dict[str, int] = {}
+    total_submissions = 0
+    accepted_submissions = 0
+
+    for verdict_enum, count in rows:
+        verdicts[verdict_enum.value] = count
+        total_submissions += count
+        if verdict_enum == Verdict.ACCEPTED:
+            accepted_submissions = count
+
+    acceptance_rate = (accepted_submissions / total_submissions * 100.0) if total_submissions > 0 else 0.0
+
+    return ProblemStatsResponse(
+        problem_id=problem_id,
+        total_submissions=total_submissions,
+        accepted_submissions=accepted_submissions,
+        acceptance_rate=round(acceptance_rate, 2),
+        verdicts=verdicts,
+    )
+
 
 @router.get('/{problem_id}', status_code=status.HTTP_200_OK, response_model=ProblemDetailResponse)
 def get_problem_by_id(problem_id: str, db: Session = Depends(get_db), current_user: User | None = Depends(oauth2.get_optional_current_admin)):
@@ -250,4 +293,4 @@ def delete_problem(problem_id: str, current_user: User = Depends(oauth2.get_curr
     get_storage_testcases().delete_problem_folder(problem.id)
     
     db.delete(problem)
-    db.commit()
+    db.commit()

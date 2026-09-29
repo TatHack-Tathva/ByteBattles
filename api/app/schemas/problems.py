@@ -40,3 +40,19 @@ class ProblemCreateResponse(BaseModel):
     difficulty: Difficulty
     tags: List[str]
     testcases: int
+
+
+# ── Feature: Problem Statistics ───────────────────────────────────────────────
+class ProblemStatsResponse(BaseModel):
+    problem_id: str
+    total_submissions: int
+    accepted_submissions: int
+    acceptance_rate: float
+    verdicts: Dict[str, int]
+
+
+# ── Feature: Global Leaderboard ───────────────────────────────────────────────
+class LeaderboardEntry(BaseModel):
+    rank: int
+    username: str
+    solved: int

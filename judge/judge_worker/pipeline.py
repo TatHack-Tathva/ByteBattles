@@ -65,6 +65,7 @@ class JudgePipeline:
         with self.db.session() as db:
             submission = self._get_submission(db, submission_id)
             problem_id = submission.problem_id
+            user_id = submission.user_id
             language = submission.language.value
             testcases = self._get_testcases(db, problem_id)
             time_limit_sec, memory_limit_kb = self._get_time_mem_limit(db, problem_id)
@@ -147,5 +148,14 @@ class JudgePipeline:
                     result.output = first_failure["output"]
 
         self._update_submission_result(submission_id, result)
+
+        # ── Feature: Global Leaderboard — record first-time AC ────────────
+        if result.verdict == Verdict.ACCEPTED:
+            try:
+                from api.app.utils.redis_utils import update_leaderboard
+                update_leaderboard(user_id, problem_id)
+            except Exception:
+                # Leaderboard update is best-effort; never block judging.
+                pass
 
         return result
