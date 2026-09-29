@@ -68,6 +68,12 @@ class UserResponse(BaseModel):
     email: EmailStr
     is_verified: bool
     created_at: datetime
+    user_type: str = "USER"  # lets the frontend hide admin-only UI
+
+    @field_validator("user_type", mode="before")
+    @classmethod
+    def _enum_to_str(cls, v):
+        return getattr(v, "value", v)
 
 class TokenPayload(BaseModel):
     sub: int

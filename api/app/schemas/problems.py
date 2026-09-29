@@ -9,6 +9,15 @@ class ProblemResponse(BaseModel):
     difficulty: Difficulty
     tags: List[str]
     accepted_submissions: int
+    total_submissions: int = 0
+
+class ProblemListResponse(BaseModel):
+    # Star-chart page: items plus the metadata needed to navigate the sky
+    items: List[ProblemResponse]
+    total: int
+    page: int
+    limit: int
+    has_more: bool
 
 class ProblemDetailResponse(ProblemResponse):
     description: str
@@ -31,6 +40,10 @@ class ProblemArrayDataValidator(BaseModel):
     sample_io: Dict[str, str]
 
 class TagCreate(BaseModel):
+    name: str
+    slug: str
+
+class TagResponse(BaseModel):
     name: str
     slug: str
 

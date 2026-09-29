@@ -50,3 +50,14 @@ WORKSPACE_DIR = os.getenv("WORKSPACE_DIR")
 
 TESTCASE_BUCKET = os.getenv("TESTCASE_BUCKET")
 SUBMISSION_BUCKET = os.getenv("SUBMISSION_BUCKET")
+
+# ---------------------------------------------------------------------------
+# Mission parameters added for the ByteBattles extension flight.
+# Defaults keep existing .env files working without modification.
+# ---------------------------------------------------------------------------
+# Launch code for the one-shot "first commander" bootstrap. Empty = disabled.
+ADMIN_BOOTSTRAP_TOKEN = os.getenv("ADMIN_BOOTSTRAP_TOKEN", "")
+
+# Launch-window governor: max submissions per user per orbital window
+SUBMISSION_RATE_LIMIT = int(os.getenv("SUBMISSION_RATE_LIMIT", "10"))
+SUBMISSION_RATE_WINDOW_SEC = int(os.getenv("SUBMISSION_RATE_WINDOW_SEC", "60"))

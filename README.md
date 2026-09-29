@@ -16,7 +16,7 @@ The system is designed to be practical, fast, and scalable on a single machine w
 - Pre-warmed Docker sandbox pools for low-latency execution
 - PostgreSQL for persistent metadata
 - MinIO object storage for testcase and submission artifacts
-- Isolated execution for C, C++, and Python
+- Isolated execution for C, C++, Python, and JavaScript (Node.js 20)
 - Automated verdict generation with CPU and memory limits
 - Sandbox Manager to manage the pre-warmed container pool (multi threaded)
 
@@ -88,7 +88,7 @@ The judge system handles:
 ### Judge execution
 - Managed by Judge Orchestrator
 - Spawns/Kills Judge Workers automatically depending on current load
-- Supports C, C++, and Python
+- Supports C, C++, Python, and JavaScript (Node.js)
 - Uses prebuilt language-specific Docker images
 - Enforces execution limits
 - Compares program output against testcase output
@@ -171,19 +171,28 @@ ByteBattles/
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
+- `POST /auth/bootstrap-admin?launch_code=...` (one-shot, first admin only)
 
 ### Users
 - `GET /users/me`
 - `PATCH /users/me`
 - `DELETE /users/me`
 - `GET /users/{username}`
+- `POST /users/{username}/promote` (admin)
+- `POST /users/{username}/demote` (admin)
 
 ### Problems
-- `GET /problems/`
+- `GET /problems/?page=&limit=&title=&difficulty=&tag=` returns `{items, total, page, limit, has_more}`
 - `POST /problems/`
 - `GET /problems/{problem_id}`
-- `POST /problems/tag`
+- `PATCH /problems/{problem_id}` (admin; metadata, tags, visibility, optional `tests_zip` replaces testcases)
+- `POST /problems/tag` (admin)
+- `GET /problems/tags`
 - `DELETE /problems/`
+
+### Telemetry
+
+- `GET /health` reports Redis, Postgres, queue depth and live judge workers
 
 ### Submissions
 - `POST /submissions/`
@@ -298,6 +307,7 @@ The judge uses language-specific Docker images:
 
 - `judge-gcc` for C and C++
 - `judge-python` for Python
+- `judge-node` for JavaScript (Node.js)
 
 These images are kept minimal to reduce startup overhead and improve sandbox pool efficiency.
 

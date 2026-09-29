@@ -1,3 +1,5 @@
+import secrets
+from sqlalchemy import text
 from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -7,9 +9,9 @@ from ..schemas.user import UserCreate, UserResponse, RefreshAccessTokenRequest, 
 from ..utils import password_manager, oauth2
 from ..database import get_db
 
-from shared.models import User
+from shared.models import User, UserType
 
-from config import DUMMY_PASS
+from config import DUMMY_PASS, ADMIN_BOOTSTRAP_TOKEN
 
 router = APIRouter(
     prefix="/auth",
@@ -74,3 +76,28 @@ def refresh(token: RefreshAccessTokenRequest):
     return {
         "access_token": access_token
     }
+
+
+@router.post('/bootstrap-admin', status_code=status.HTTP_200_OK)
+def bootstrap_admin(launch_code: str, current_user: User = Depends(oauth2.get_current_user), db: Session = Depends(get_db)):
+    """One-shot ignition: crown the FIRST commander of the fleet.
+
+    Works only while zero admins exist AND the caller presents the launch code
+    from ADMIN_BOOTSTRAP_TOKEN. After the first success it seals itself shut.
+    """
+    if not ADMIN_BOOTSTRAP_TOKEN:
+        raise HTTPException(detail="Admin bootstrap is disabled", status_code=status.HTTP_404_NOT_FOUND)
+
+    # Serialize concurrent ignition attempts so two pilots can't both claim the chair
+    if db.bind.dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(7331)"))
+
+    if db.query(User).filter(User.user_type == UserType.ADMIN).first():
+        raise HTTPException(detail="Command deck is already staffed", status_code=status.HTTP_409_CONFLICT)
+
+    if not secrets.compare_digest(launch_code.encode(), ADMIN_BOOTSTRAP_TOKEN.encode()):
+        raise HTTPException(detail="Invalid launch code", status_code=status.HTTP_403_FORBIDDEN)
+
+    current_user.user_type = UserType.ADMIN
+    db.commit()
+    return {"detail": f"{current_user.username} promoted to ADMIN"}

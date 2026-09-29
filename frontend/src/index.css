@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-fade-up: fade-up 0.4s ease-out both;
+  --animate-pop: pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-glow: glow 1.8s ease-in-out 2;
+  --animate-slide: slide 1.2s ease-in-out infinite;
+  @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  @keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(52 211 153 / 0); } 50% { box-shadow: 0 0 24px 2px rgb(52 211 153 / 0.45); } }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+}
+
+body { background: #020617; color: #f1f5f9; }
+:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
+.skeleton { background: linear-gradient(90deg, #0f172a 25%, #1e293b 50%, #0f172a 75%); background-size: 200% 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -71,6 +71,9 @@ class JudgeExecutor:
             inner_cmd = f"{executable_path}"
         elif language == Language.PYTHON:
             inner_cmd = f"python3 {executable_path}"
+        elif language == Language.JAVASCRIPT:
+            # Node is interpreted: no compile burn, straight to orbit
+            inner_cmd = f"node {executable_path}"
         else:
             raise ValueError(f"Unsupported language: {language}")
 

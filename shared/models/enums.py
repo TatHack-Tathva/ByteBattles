@@ -23,3 +23,4 @@ class Language(str, Enum):
     C = "C"
     CPP = "CPP"
     PYTHON = "PY"
+    JAVASCRIPT = "JS"  # Node.js probe, 4th language module

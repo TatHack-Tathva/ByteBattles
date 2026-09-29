@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Query
+from fastapi import APIRouter, Depends, status, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 from typing import List
 
 from ..utils import oauth2
-from ..utils.redis_utils import enqueue_job
+from ..utils.redis_utils import enqueue_job, check_rate_limit
 from ..schemas.submissions import SubmissionCreate, SubmissionResponse, SubmissionHeaderResponse
 from ..database import get_db
 
+from config import SUBMISSION_RATE_LIMIT, SUBMISSION_RATE_WINDOW_SEC
 from shared.core import get_storage_submission_code
 from shared.models import (
     User, # users
@@ -21,7 +22,20 @@ router = APIRouter(
 )
 
 @router.post('/', status_code=status.HTTP_201_CREATED, response_model=SubmissionResponse)
-def create_submission(details: SubmissionCreate, current_user: User = Depends(oauth2.get_current_user), db: Session = Depends(get_db)):
+def create_submission(details: SubmissionCreate, response: Response, current_user: User = Depends(oauth2.get_current_user), db: Session = Depends(get_db)):
+
+    # Launch-window governor: throttle per-user submissions before touching storage
+    allowed, remaining, retry_after = check_rate_limit(
+        "submit", current_user.id, SUBMISSION_RATE_LIMIT, SUBMISSION_RATE_WINDOW_SEC
+    )
+    if not allowed:
+        raise HTTPException(
+            detail=f"Launch window saturated. Retry in {retry_after}s.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(retry_after)},
+        )
+    response.headers["X-RateLimit-Limit"] = str(SUBMISSION_RATE_LIMIT)
+    response.headers["X-RateLimit-Remaining"] = str(remaining)
 
     problem = db.query(Problem).filter(Problem.id == details.problem_id, Problem.visibility == True).first()
     if not problem:
@@ -64,7 +78,7 @@ def create_submission(details: SubmissionCreate, current_user: User = Depends(oa
     }
 
 @router.get('/', status_code=status.HTTP_200_OK, response_model=List[SubmissionHeaderResponse])
-def get_submissions(problem_id: str | None = None, username: str | None = None, page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=5, le=100), current_user: User | None = Depends(oauth2.get_optional_current_user), db: Session = Depends(get_db)):
+def get_submissions(problem_id: str | None = None, username: str | None = None, page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=1, le=100), current_user: User | None = Depends(oauth2.get_optional_current_user), db: Session = Depends(get_db)):
     if not username and not current_user:
         raise HTTPException(detail="Username cannot be empty for non logged in users", status_code=status.HTTP_400_BAD_REQUEST)
     

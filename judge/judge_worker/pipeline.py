@@ -1,4 +1,5 @@
 import docker
+from sqlalchemy import func
 from contextlib import contextmanager
 
 from shared.models import Submission, TestCase, Language, Verdict, Problem
@@ -54,11 +55,27 @@ class JudgePipeline:
             if submission is None:
                 return
             
+            # Mission-log bookkeeping: count each submission exactly once, on the
+            # PENDING -> final transition. The worker re-queues failed jobs, so a
+            # retried submission must never inflate the problem's counters.
+            first_landing = submission.verdict == Verdict.PENDING and result.verdict != Verdict.PENDING
+
             submission.verdict = result.verdict
             submission.output = result.output
             submission.incorrect_testcase_key = result.incorrect_testcase_key
             submission.walltime_ms = result.runtime_ms
             submission.memory_kb = result.memory_kb
+
+            if first_landing:
+                # SQL-side increments are atomic across parallel judge workers
+                db.query(Problem).filter(Problem.id == submission.problem_id).update(
+                    {
+                        Problem.total_submissions: func.coalesce(Problem.total_submissions, 0) + 1,
+                        Problem.accepted_submissions: func.coalesce(Problem.accepted_submissions, 0)
+                        + (1 if result.verdict == Verdict.ACCEPTED else 0),
+                    },
+                    synchronize_session=False,
+                )
 
     def process_submission(self, submission_id: int) -> SubmissionResult:
 
@@ -102,6 +119,9 @@ class JudgePipeline:
 
             elif language == Language.PYTHON:
                 executable_path = f"{WORKSPACE_DIR}/main.py"
+
+            elif language == Language.JAVASCRIPT:
+                executable_path = f"{WORKSPACE_DIR}/main.js"
             else:
                 raise ValueError(f"Unsupported language: {language}")
             

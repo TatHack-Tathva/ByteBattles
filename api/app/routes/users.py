@@ -5,7 +5,7 @@ from ..utils import oauth2, password_manager
 from ..schemas.user import UserResponse, UserUpdate, UserResponseUnknown
 from ..database import get_db
 
-from shared.models import User
+from shared.models import User, UserType
 
 router = APIRouter(
     prefix='/users',
@@ -48,6 +48,28 @@ def update_current_user(updates: UserUpdate, current_user: User = Depends(oauth2
 def delete_current_user(current_user: User = Depends(oauth2.get_current_user), db: Session = Depends(get_db)):
     db.delete(current_user)
     db.commit()
+
+@router.post('/{username}/promote', status_code=status.HTTP_200_OK)
+def promote_user(username: str, admin: User = Depends(oauth2.get_current_admin), db: Session = Depends(get_db)):
+    # Commander-only: grant a crew member the ADMIN badge
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(detail="User with the given username was not found", status_code=status.HTTP_404_NOT_FOUND)
+    user.user_type = UserType.ADMIN
+    db.commit()
+    return {"username": user.username, "user_type": user.user_type}
+
+@router.post('/{username}/demote', status_code=status.HTTP_200_OK)
+def demote_user(username: str, admin: User = Depends(oauth2.get_current_admin), db: Session = Depends(get_db)):
+    # Strip the badge, but never leave the command deck empty or self-eject
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(detail="User with the given username was not found", status_code=status.HTTP_404_NOT_FOUND)
+    if user.id == admin.id:
+        raise HTTPException(detail="Admins cannot demote themselves", status_code=status.HTTP_400_BAD_REQUEST)
+    user.user_type = UserType.USER
+    db.commit()
+    return {"username": user.username, "user_type": user.user_type}
 
 @router.get('/{username}', status_code=status.HTTP_200_OK)
 def get_user(username: str, db: Session = Depends(get_db), current_user: User | None = Depends(oauth2.get_optional_current_user)):
