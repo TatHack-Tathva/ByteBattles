@@ -132,7 +132,6 @@ api = [
 ]
 judge = [
     { name = "docker" },
-    { name = "netifaces" },
 ]
 
 [package.metadata]
@@ -154,10 +153,7 @@ api = [
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "uvicorn", specifier = ">=0.51.0" },
 ]
-judge = [
-    { name = "docker", specifier = ">=7.2.0" },
-    { name = "netifaces", specifier = ">=0.11.0" },
-]
+judge = [{ name = "docker", specifier = ">=7.2.0" }]
 
 [[package]]
 name = "certifi"
@@ -468,12 +464,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247f
 wheels = [
     { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
 ]
-
-[[package]]
-name = "netifaces"
-version = "0.11.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a6/91/86a6eac449ddfae239e93ffc1918cf33fd9bab35c04d1e963b311e347a73/netifaces-0.11.0.tar.gz", hash = "sha256:043a79146eb2907edf439899f262b3dfe41717d34124298ed281139a8b93ca32", size = 30106, upload-time = "2021-05-31T08:33:02.506Z" }
 
 [[package]]
 name = "psycopg2-binary"

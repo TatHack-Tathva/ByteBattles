@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func, update
 from typing import List
 
 from ..utils import oauth2
@@ -9,7 +10,7 @@ from ..database import get_db
 
 from shared.core import get_storage_submission_code
 from shared.models import (
-    User, # users
+    User, UserType, # users
     EXTENSIONS, Verdict, # enums
     Submission, # submissions
     Problem # problems
@@ -41,6 +42,11 @@ def create_submission(details: SubmissionCreate, current_user: User = Depends(oa
     )
 
     db.add(submission)
+    db.execute(
+        update(Problem)
+        .where(Problem.id == problem.id)
+        .values(total_submissions=func.coalesce(Problem.total_submissions, 0) + 1)
+    )
     db.commit()
     db.refresh(submission)
 
@@ -90,11 +96,27 @@ def get_submissions(problem_id: str | None = None, username: str | None = None, 
     
     return submissions
 
-@router.get('/{submission_id}', status_code=status.HTTP_200_OK, response_model=SubmissionResponse)
-def get_submission_by_id(submission_id: int | None, db: Session = Depends(get_db)):
+@router.get(
+    '/{submission_id}',
+    status_code=status.HTTP_200_OK,
+    response_model=SubmissionResponse,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required"},
+        status.HTTP_404_NOT_FOUND: {"description": "Submission not found or not accessible"},
+    },
+)
+def get_submission_by_id(
+    submission_id: int,
+    current_user: User = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
+):
 
     submission = db.query(Submission).filter(Submission.id == submission_id).first()
-    if not submission or submission.problem.visibility == False:
+    if not submission:
+        raise HTTPException(detail="Submission not found", status_code=status.HTTP_404_NOT_FOUND)
+
+    is_admin = current_user.user_type == UserType.ADMIN
+    if submission.user_id != current_user.id and not is_admin:
         raise HTTPException(detail="Submission not found", status_code=status.HTTP_404_NOT_FOUND)
 
     return {

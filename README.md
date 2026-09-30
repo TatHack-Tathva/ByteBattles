@@ -183,7 +183,7 @@ ByteBattles/
 - `POST /problems/`
 - `GET /problems/{problem_id}`
 - `POST /problems/tag`
-- `DELETE /problems/`
+- `DELETE /problems/{problem_id}`
 
 ### Submissions
 - `POST /submissions/`

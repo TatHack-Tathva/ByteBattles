@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, Form, File, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Dict, BinaryIO
 
 from ..schemas.problems import ProblemResponse, ProblemDetailResponse, ProblemArrayDataValidator, TagCreate, ProblemCreateResponse
@@ -24,13 +25,45 @@ router = APIRouter(
     tags=["Problems"]
 )
 
-# NOTE: admin tag/category creation (POST /problems/tag) used to live here.
-# It's been pulled out — see PROBLEM_STATEMENT.md. `TagCreate` schema and the
-# `Category` model are still imported/available above for you to use.
+@router.post(
+    '/tag',
+    status_code=status.HTTP_201_CREATED,
+    response_model=TagCreate,
+    responses={status.HTTP_409_CONFLICT: {"description": "Tag name or slug already exists"}},
+)
+def create_tag(
+    details: TagCreate,
+    current_user: User = Depends(oauth2.get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Create a category used to label problems; this route requires an admin."""
+    if db.query(Category).filter(
+        (Category.slug == details.slug) | (Category.name == details.name)
+    ).first():
+        raise HTTPException(
+            detail="A tag with this name or slug already exists",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    category = Category(name=details.name, slug=details.slug)
+    db.add(category)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            detail="Could not create tag",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(category)
+    return {"name": category.name, "slug": category.slug}
 
 @router.get('/', status_code=status.HTTP_200_OK, response_model=List[ProblemResponse])
 def get_problems(page: int = Query(default=1, ge=1), limit: int = Query(default=20, ge=5, le=100), db: Session = Depends(get_db), current_user: User | None = Depends(oauth2.get_optional_current_admin)):
-    offset = page * limit
+    offset = (page - 1) * limit
     if current_user:
         problems = db.query(Problem).order_by(Problem.id.asc()).offset(offset).limit(limit).all()
     else:
@@ -237,7 +270,7 @@ async def create_problem(
         "testcases": len(input_files)
     }
 
-@router.delete('/', status_code=status.HTTP_204_NO_CONTENT)
+@router.delete('/{problem_id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_problem(problem_id: str, current_user: User = Depends(oauth2.get_current_admin), db: Session = Depends(get_db)):
     problem = db.query(Problem).filter(Problem.id == problem_id).first()
     if not problem:

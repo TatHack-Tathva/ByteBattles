@@ -115,9 +115,15 @@ class JudgeExecutor:
         stdout_output = b"".join(stdout_chunks).decode("utf-8", errors="replace")
         stderr_output = b"".join(stderr_chunks).decode("utf-8", errors="replace")
 
-        stats = stderr_output.split("\n")[-2].split()
+        stats_line = next(
+            (line for line in reversed(stderr_output.splitlines()) if len(line.split()) == 2),
+            None,
+        )
+        if stats_line is None:
+            raise RuntimeError(f"Could not parse execution statistics: {stderr_output[-500:]}")
 
-        time_elapsed = min(int(float(stats[0])), time_limit_sec * 1000)
+        stats = stats_line.split()
+        time_elapsed = min(int(round(float(stats[0]) * 1000)), time_limit_sec * 1000)
         memory_kb_used = min(int(stats[1]), memory_limit_kb)
 
         if memory_kb_used == memory_limit_kb:
