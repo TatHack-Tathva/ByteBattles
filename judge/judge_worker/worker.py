@@ -2,7 +2,7 @@ import time
 import docker
 import redis
 
-from config import REDIS_DB, REDIS_JOB_LIST, REDIS_HOST, REDIS_JOB_LIST, REDIS_PORT, SHUTDOWN_KEY, WORKER_PREFIX
+from config import REDIS_DB, REDIS_HOST, REDIS_JOB_LIST, REDIS_PORT, SHUTDOWN_KEY, WORKER_PREFIX
 from .database import Database
 from .executor import JudgeExecutor
 from .pipeline import JudgePipeline
@@ -51,9 +51,11 @@ class JudgeWorker:
 
                 self.log.info(f"Processing submission with ID: {submission_id}")
                 self._set_submission(submission_id)
-                result = self.pipeline.process_submission(submission_id)
-                self._delete_submission(submission_id)
-                self.log.info(f"Processed submission with ID: {result.submission_id} - Verdict: {result.verdict.value}")
+                try:
+                    result = self.pipeline.process_submission(submission_id)
+                    self.log.info(f"Processed submission with ID: {result.submission_id} - Verdict: {result.verdict.value}")
+                finally:
+                    self._delete_submission(submission_id)
             except KeyboardInterrupt:
                 self.log.info("Shutting down...")
                 return

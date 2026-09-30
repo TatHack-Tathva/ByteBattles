@@ -1,6 +1,7 @@
 import io
 import tarfile
 import docker
+import socket
 from docker.utils.socket import frames_iter
 
 from config import (
@@ -21,7 +22,7 @@ class JudgeExecutor:
         cmd = [
             "/bin/sh",
             "-lc",
-            f"gcc -O2 -pipe -static -s -o {WORKSPACE_DIR}/main.out {WORKSPACE_DIR}/main.c 2>&1",
+            f"timeout -s KILL 10s gcc -O2 -pipe -static -s -o {WORKSPACE_DIR}/main.out {WORKSPACE_DIR}/main.c 2>&1",
         ]
         result = self._container_exec(container, cmd)
         exit_code = int(result.exit_code)
@@ -39,7 +40,7 @@ class JudgeExecutor:
         cmd = [
             "/bin/sh",
             "-lc",
-            f"g++ -O2 -std=c++17 -pipe -static -s -o {WORKSPACE_DIR}/main.out {WORKSPACE_DIR}/main.cpp 2>&1",
+            f"timeout -s KILL 10s g++ -O2 -std=c++17 -pipe -static -s -o {WORKSPACE_DIR}/main.out {WORKSPACE_DIR}/main.cpp 2>&1",
         ]
         result = self._container_exec(container, cmd)
         exit_code = int(result.exit_code)
@@ -97,6 +98,10 @@ class JudgeExecutor:
 
         # send stdin
         sock._sock.sendall(input_data.encode())
+        try:
+            sock._sock.shutdown(socket.SHUT_WR)
+        except Exception:
+            pass
 
         stdout_chunks = []
         stderr_chunks = []
@@ -117,7 +122,7 @@ class JudgeExecutor:
 
         stats = stderr_output.split("\n")[-2].split()
 
-        time_elapsed = min(int(float(stats[0])), time_limit_sec * 1000)
+        time_elapsed = min(int(float(stats[0]) * 1000), time_limit_sec * 1000)
         memory_kb_used = min(int(stats[1]), memory_limit_kb)
 
         if memory_kb_used == memory_limit_kb:

@@ -10,6 +10,10 @@ class ProblemResponse(BaseModel):
     tags: List[str]
     accepted_submissions: int
 
+    model_config = {
+      "from_attributes": True
+    }
+
 class ProblemDetailResponse(ProblemResponse):
     description: str
     constraints: List[str]
