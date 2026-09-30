@@ -56,8 +56,8 @@ class Problem(Base):
 
     source = Column(String, nullable=True)
 
-    accepted_submissions = Column(Integer, server_default="0")
-    total_submissions = Column(Integer, server_default="0")
+    accepted_submissions = Column(Integer, nullable=False, default=0, server_default="0")
+    total_submissions = Column(Integer, nullable=False, default=0, server_default="0")
 
     editorial = Column(Text, nullable=True)
 

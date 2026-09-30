@@ -1,4 +1,5 @@
 import docker
+from sqlalchemy import func, update
 from contextlib import contextmanager
 
 from shared.models import Submission, TestCase, Language, Verdict, Problem
@@ -36,7 +37,7 @@ class JudgePipeline:
 
     def _get_testcases(self, db, problem_id: str):
         testcases = db.query(TestCase).filter(TestCase.problem_id == problem_id).order_by(TestCase.id).all()
-        if testcases is None:
+        if not testcases:
             raise ValueError(f"Testcases for problem {problem_id} not found")
         return testcases
     
@@ -53,12 +54,27 @@ class JudgePipeline:
             submission = db.query(Submission).filter(Submission.id == submission_id).first()
             if submission is None:
                 return
-            
-            submission.verdict = result.verdict
-            submission.output = result.output
-            submission.incorrect_testcase_key = result.incorrect_testcase_key
-            submission.walltime_ms = result.runtime_ms
-            submission.memory_kb = result.memory_kb
+
+            updated = db.execute(
+                update(Submission)
+                .where(
+                    Submission.id == submission_id,
+                    Submission.verdict == Verdict.PENDING,
+                )
+                .values(
+                    verdict=result.verdict,
+                    output=result.output,
+                    incorrect_testcase_key=result.incorrect_testcase_key,
+                    walltime_ms=result.runtime_ms,
+                    memory_kb=result.memory_kb,
+                )
+            )
+            if updated.rowcount and result.verdict == Verdict.ACCEPTED:
+                db.execute(
+                    update(Problem)
+                    .where(Problem.id == submission.problem_id)
+                    .values(accepted_submissions=func.coalesce(Problem.accepted_submissions, 0) + 1)
+                )
 
     def process_submission(self, submission_id: int) -> SubmissionResult:
 

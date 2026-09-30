@@ -42,6 +42,7 @@ class JudgeWorker:
 
             self.redis.set(self.local_heartbeat_key, time.time())
             
+            submission_id = None
             try:
                 item = self.redis.brpop(REDIS_JOB_LIST, timeout=1)
                 if item is None:
@@ -60,8 +61,11 @@ class JudgeWorker:
             except ValueError as e:
                 self.log.error(e)
             except Exception as e:
-                self.log.error(f"Processing of submission ID : {submission_id} failed with error: {e} - Attempting Retry")
-                self.redis.lpush(REDIS_JOB_LIST, submission_id)
+                if submission_id is not None:
+                    self.log.error(f"Processing of submission ID : {submission_id} failed with error: {e} - Attempting Retry")
+                    self.redis.lpush(REDIS_JOB_LIST, submission_id)
+                else:
+                    self.log.error(f"Worker iteration error: {e}")
                 time.sleep(1)
 
     def run(self) -> None:
