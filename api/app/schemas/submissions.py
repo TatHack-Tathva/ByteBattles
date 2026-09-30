@@ -27,9 +27,12 @@ class SubmissionHeaderResponse(BaseModel):
     problem_id: str
     username: str
     verdict: Verdict
+    incorrect_testcase: str | None
+    output: str | None
     walltime_ms: int | None
     memory_kb: int | None
-
+    code: str
+    
     model_config = {
         "from_attributes": True
     }

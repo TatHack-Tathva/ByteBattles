@@ -63,11 +63,20 @@ class UserResponseUnknown(BaseModel):
     is_verified: bool
     created_at: datetime
 
+    
+    model_config = {
+      "from_attributes": True
+    }
+
 class UserResponse(BaseModel):
     username: str
     email: EmailStr
     is_verified: bool
     created_at: datetime
+
+    model_config = {
+      "from_attributes": True
+    }
 
 class TokenPayload(BaseModel):
     sub: int
